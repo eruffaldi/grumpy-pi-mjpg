@@ -11,6 +11,8 @@ import (
 	"runtime/pprof"
 )
 
+var source = make(chan []byte)
+
 const defaultTemplate = `
 <!DOCTYPE html>
 <html>
@@ -34,6 +36,16 @@ func writeStreamOutput(w http.ResponseWriter) {
 	w.Header().Set("Connection", "keep-alive")
 	if c, ok := w.(http.CloseNotifier); ok {
 		converter.StreamTo(w, c.CloseNotify())
+	}
+
+}
+
+func writeSingleJpeg(w http.ResponseWriter) {
+	w.Header().Add("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	if c, ok := w.(http.CloseNotifier); ok {
+		converter.SingleTo(w, c.CloseNotify())
 	}
 }
 
@@ -73,6 +85,10 @@ func main() {
 
 	http.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
 		writeStreamOutput(w)
+	})
+
+	http.HandleFunc("/jpeg", func(w http.ResponseWriter, r *http.Request) {
+		writeSingleJpeg(w)
 	})
 
 	converter.Broadcast()

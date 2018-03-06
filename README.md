@@ -27,6 +27,10 @@ Of course, `raspivid` can take any options like so :
 
     raspivid -cd MJPEG -w 640 -h 360 -fps 10 -t 0 -n -o - | mjpg-server
 
+For macOS
+
+	ffmpeg -r 30 -f avfoundation -i  "FaceTime HD Camera" -f mjpeg -q:v 3 -huffman optimal - | ./mjpg-server
+
 ### How to compile
 
 **NOTE**: prefer binary releases, see how to download above

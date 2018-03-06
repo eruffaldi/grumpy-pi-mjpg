@@ -8,6 +8,8 @@ import (
 	"image/color"
 	"image/jpeg"
 	"io"
+		"net/http"
+
 	"os"
 	"sync"
 )
@@ -108,11 +110,6 @@ func generator(ch chan []byte) {
 			break
 		}
 		ProcessData(readbuffer, n, func(image []byte) {
-			// header
-			fmt.Fprintf(writebuffer, "%s\r\n", *boundary)
-			writebuffer.Write([]byte("Content-Type: image/jpeg\r\n"))
-			fmt.Fprintf(writebuffer, "Content-Length: %d\r\n", len(image))
-			writebuffer.Write([]byte("\r\n"))
 			// image
 			writebuffer.Write(image)
 			// make a copy to send over channel
@@ -143,6 +140,7 @@ func StreamTo(w io.Writer, closed <-chan bool) {
 	}
 	fmt.Fprintf(os.Stderr, "created %p\n", wk)
 	data.Push(wk)
+	writebuffer := new(bytes.Buffer)
 loop:
 	for {
 		select {
@@ -155,7 +153,41 @@ loop:
 			} else {
 				wk.first = false
 			}
+			writebuffer.Reset()
+			fmt.Fprintf(writebuffer, "%s\r\n", *boundary)
+			writebuffer.Write([]byte("Content-Type: image/jpeg\r\n"))
+			fmt.Fprintf(writebuffer, "Content-Length: %d\r\n\r\n", len(s))
+			cp := make([]byte, writebuffer.Len())
+			copy(cp, writebuffer.Bytes())
+			w.Write(cp)
 			w.Write(s)
+			w.Write(s)
+		case <-closed:
+			wk.done = true
+		}
+	}
+}
+
+
+func SingleTo(w http.ResponseWriter, closed <-chan bool) {
+	wk := &worker{
+		source: make(chan []byte),
+		first:  true,
+	}
+	data.Push(wk)
+	writebuffer := new(bytes.Buffer)
+loop:
+	for {
+		select {
+		case s, ok := <-wk.source:
+			if !ok {
+				break loop
+			}
+			writebuffer.Reset()
+			w.Header().Set("Content-Length",fmt.Sprintf("%d", len(s)))
+			w.Write(s)
+			wk.done = true
+			return
 		case <-closed:
 			wk.done = true
 		}
